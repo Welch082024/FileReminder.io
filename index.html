@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>LGU Balayan File Reminder</title>
+        <link rel="icon" href="favicon.ico" type="image/x-icon">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.10.2/fullcalendar.min.css"/>
+        <style>
+            body {
+                font-family: "Arial", sans-serif;
+                background-image: url('background.jpg');
+            }
+            .container {
+                max-width: 800px;
+                margin: auto;
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+            label,
+            input,
+            button {
+                display: block;
+                width: 100%;
+                margin: 10px 0;
+                box-sizing: border-box;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+            th,
+            td {
+                padding: 10px;
+                border: 1px solid #ddd;
+                text-align: center;
+            }
+            th {
+                background-color: green;
+                color: white;
+            }
+            button,
+            #fileButton {
+                background-color: rgb(73, 56, 226);
+                color: white;
+                padding: 10px;
+                border: none;
+                cursor: pointer;
+            }
+            button:hover,
+            #fileButton:hover {
+                background-color: red;
+            }
+            .highlight-today {
+                color: red;
+                font-weight: bold;
+            }
+            .highlight-soon {
+                color: orange;
+                font-weight: bold;
+            }
+            .tab {
+                overflow: hidden;
+                background-color: #f1f1f1;
+                display: flex;
+                border-bottom: 1px solid #ccc;
+                margin-bottom: 20px;
+            }
+            .tab button {
+                background-color: rgb(73, 56, 226);
+                border: none;
+                outline: none;
+                cursor: pointer;
+                padding: 14px 16px;
+                transition: 0.3s;
+                font-size: 17px;
+                flex: 1;
+            }
+            .tab button:hover {
+                background-color: red;
+            }
+            .tab button.active {
+                background-color: green;
+                border-bottom: 4px solid black;
+            }
+            .tab-content {
+                display: none;
+            }
+            .tab-content.active {
+                display: block;
+            }
+            #calendar-container {
+                margin-top: 20px;
+            }
+
+            .fc-button {
+            background-color: rgb(73, 56, 226) !important;
+            color: black !important;
+            border: none !important;
+            padding: 10px 15px !important;
+            font-size: 15px !important;
+            font-weight: bold !important;
+            border-radius: 5px !important;
+            cursor: pointer !important;
+            transition: 0.3s ease-in-out !important;
+            }
+
+            .fc-button:hover {
+            background-color: red !important;
+            }
+
+
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2 style="text-align: center;">LGU Balayan File Reminder</h2>
+            <div class="tab">
+                <button class="tablinks active" onclick="openTab(event, 'Reminders')">Reminders</button>
+                <button class="tablinks" onclick="openTab(event, 'Calendar')">Calendar</button>
+            </div>
+            <div id="Reminders" class="tab-content active">
+                <label for="title">Title :</label>
+                <input type="text" id="title" maxlength="15"/>
+                <label for="description">Description :</label>
+                <input type="text" id="description" maxlength="20"/>
+                <label for="link">Link :</label>
+                <input type="text" id="link" maxlength="30"/>
+                <label for="date">Date :</label>
+                <input type="date" id="date"/>
+                <label for="time">Time :</label>
+                <input type="time" id="time"/>
+                <label for="file">Attach File :</label>
+                <input type="file" id="file" style="display: none;"/>
+                <button id="fileButton" onclick="document.getElementById('file').click();">Choose File</button>
+                <button onclick="scheduleReminder();">Schedule Reminder</button>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Link</th>
+                            <th>File</th>
+                            <th>Date & Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reminderTableBody"></tbody>
+                </table>
+            </div>
+            <div id="Calendar" class="tab-content">
+                <div id="calendar-container">
+                    <div id="calendar"></div>
+                </div>
+            </div>
+        </div>
+        <audio src="notificationsoundeffect.mp3" id="notificationSound"></audio>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.10.2/fullcalendar.min.js"></script>
+        <script>
+            if ("Notification" in window) {
+                Notification.requestPermission().then(function (permission) {
+                    if (Notification.permission !== "granted") {
+                        alert("Please allow notification access!");
+                        location.reload();
+                    }
+                });
+            }
+
+            function openTab(evt, tabName) {
+                var i, tabcontent, tablinks;
+                tabcontent = document.getElementsByClassName("tab-content");
+                for (i = 0; i < tabcontent.length; i++) {
+                    tabcontent[i].style.display = "none";
+                }
+                tablinks = document.getElementsByClassName("tablinks");
+                for (i = 0; i < tablinks.length; i++) {
+                    tablinks[i].className = tablinks[i].className.replace(" active", "");
+                }
+                document.getElementById(tabName).style.display = "block";
+                evt.currentTarget.className += " active";
+            }
+
+            var timeoutIds = [];
+
+            function scheduleReminder() {
+                var title = document.getElementById("title").value;
+                var description = document.getElementById("description").value;
+                var link = document.getElementById("link").value;
+                var date = document.getElementById("date").value;
+                var time = document.getElementById("time").value;
+                var fileInput = document.getElementById("file");
+                var file = fileInput.files[0];
+
+                var dateTimeString = date + "T" + time + ":00";
+                var scheduledTime = new Date(dateTimeString);
+                var currentTime = new Date();
+                var timeDifference = scheduledTime - currentTime;
+
+                if (timeDifference > 0) {
+                    if (file) {
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            var fileData = e.target.result;
+                            addReminder(title, description, link, file.name, fileData, dateTimeString);
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        addReminder(title, description, link, null, null, dateTimeString);
+                    }
+                    var timeoutId = setTimeout(function () {
+                        showNotification(title, description, link);
+                    }, timeDifference);
+                    timeoutIds.push(timeoutId);
+                } else {
+                    alert("The scheduled time is in the past");
+                }
+            }
+
+            function addReminder(title, description, link, fileName, fileData, dateTimeString) {
+                var tableBody = document.getElementById("reminderTableBody");
+                var row = tableBody.insertRow();
+                row.insertCell(0).innerText = title;
+                row.insertCell(1).innerText = description;
+                row.insertCell(2).innerHTML = `<a href="${link}" target="_blank">${link}</a>`;
+                row.insertCell(3).innerHTML = fileName ? `<a href="${fileData}" download="${fileName}">${fileName}</a>` : "No file attached";
+                row.insertCell(4).innerText = dateTimeString.replace("T", " ").substring(0, 16);
+                row.insertCell(5).innerHTML = '<button onclick="deleteReminder(this);">Delete</button>';
+                updateHighlight(row, dateTimeString.split('T')[0]);
+                saveRemindersToLocalStorage();
+                updateCalendar();
+            }
+
+
+            function updateHighlight(row, date) {
+                 var currentDate = new Date().toISOString().split('T')[0];
+                 var threeDaysLater = new Date();
+                 threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+    
+                 var dateTimeCell = row.cells[4];
+
+    
+                 dateTimeCell.classList.remove("highlight-today", "highlight-soon");
+
+                  if (date === currentDate) {
+                   dateTimeCell.classList.add("highlight-today");
+                  } else if (new Date(date) <= threeDaysLater && new Date(date) >= new Date(currentDate)) {
+                  dateTimeCell.classList.add("highlight-soon");
+    }
+}
+
+
+            function checkReminders() {
+                var tableBody = document.getElementById("reminderTableBody");
+                var rows = tableBody.rows;
+                for (var i = 0; i < rows.length; i++) {
+                    var dateCell = rows[i].cells[4].innerText.split(' ')[0];
+                    updateHighlight(rows[i], dateCell);
+                    updateHighlight(rows[i], dateCell);
+                }
+            }
+
+            setInterval(checkReminders, 5000);
+
+            function deleteReminder(button) {
+                var row = button.closest("tr");
+                var index = row.rowIndex;
+                clearTimeout(timeoutIds[index - 1]);
+                timeoutIds.splice(index - 1, 1);
+                row.remove();
+                saveRemindersToLocalStorage();
+                updateCalendar();
+            }
+
+            function saveRemindersToLocalStorage() {
+                var tableBody = document.getElementById("reminderTableBody");
+                var rows = tableBody.rows;
+                var reminders = [];
+
+                for (var i = 0; i < rows.length; i++) {
+                    var cells = rows[i].cells;
+                    var fileAnchor = cells[3].getElementsByTagName("a")[0];
+                    reminders.push({
+                        title: cells[0].innerText,
+                        description: cells[1].innerText,
+                        link: cells[2].innerText,
+                        fileName: fileAnchor ? fileAnchor.download : null,
+                        fileData: fileAnchor ? fileAnchor.href : null,
+                        dateTime: cells[4].innerText,
+                    });
+                }
+
+                localStorage.setItem('reminders', JSON.stringify(reminders));
+                updateCalendar();
+            }
+
+            function loadRemindersFromLocalStorage() {
+                var tableBody = document.getElementById("reminderTableBody");
+                while (tableBody.firstChild) {
+                    tableBody.removeChild(tableBody.firstChild);
+                }
+
+                var reminders = JSON.parse(localStorage.getItem('reminders')) || [];
+
+                for (var i = 0; i < reminders.length; i++) {
+                    addReminder(
+                        reminders[i].title,
+                        reminders[i].description,
+                        reminders[i].link,
+                        reminders[i].fileName,
+                        reminders[i].fileData,
+                        reminders[i].dateTime
+                    );
+                }
+                updateCalendar();
+            }
+
+            function updateCalendar() {
+                var reminders = JSON.parse(localStorage.getItem('reminders')) || [];
+                $('#calendar').fullCalendar('removeEvents');
+                for (var i = 0; i < reminders.length; i++) {
+                    $('#calendar').fullCalendar('renderEvent', {
+                        title: reminders[i].title,
+                        start: reminders[i].dateTime,
+                        description: reminders[i].description,
+                        link: reminders[i].link,
+                        fileName: reminders[i].fileName,
+                        fileData: reminders[i].fileData,
+                        click: function(event) {
+                            if (event.fileName && event.fileData) {
+                                const a = document.createElement('a');
+                                a.href = event.fileData;
+                                a.download = event.fileName;
+                                a.click();
+                            } else if (event.link) {
+                                window.open(event.link, '_blank');
+                            } else {
+                                alert('No file or link provided.');
+                            }
+                        }
+                    }, true);
+                }
+            }
+
+            function showNotification(title, description, link) {
+                if (Notification.permission === "granted") {
+                    var options = {
+                        body: description + "\n" + link,
+                        icon: "favicon.ico"
+                    };
+                    var notification = new Notification(title, options);
+                    var notificationSound = document.getElementById("notificationSound");
+                    notificationSound.play();
+                }
+            }
+
+            $(document).ready(function() {
+                $('#calendar').fullCalendar({
+                    header: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'month,agendaWeek,agendaDay'
+                    },
+                    editable: false,
+                    events: [],
+                    eventClick: function(event) {
+                        if (event.fileName && event.fileData) {
+                            const a = document.createElement('a');
+                            a.href = event.fileData;
+                            a.download = event.fileName;
+                            a.click();
+                        } else if (event.link) {
+                            window.open(event.link, '_blank');
+                        } else {
+                            alert('No file or link provided.');
+                        }
+                    }
+                });
+                loadRemindersFromLocalStorage();
+            });
+
+            window.onload = loadRemindersFromLocalStorage;
+        </script>
+    </body>
+</html>
