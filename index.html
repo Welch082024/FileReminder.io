@@ -275,47 +275,71 @@
             }
 
             function saveRemindersToLocalStorage() {
-                var tableBody = document.getElementById("reminderTableBody");
-                var rows = tableBody.rows;
-                var reminders = [];
+            var tableBody = document.getElementById("reminderTableBody");
+            var rows = tableBody.rows;
+            var reminders = [];
 
-                for (var i = 0; i < rows.length; i++) {
-                    var cells = rows[i].cells;
-                    var fileAnchor = cells[3].getElementsByTagName("a")[0];
-                    reminders.push({
-                        title: cells[0].innerText,
-                        description: cells[1].innerText,
-                        link: cells[2].innerText,
-                        fileName: fileAnchor ? fileAnchor.download : null,
-                        fileData: fileAnchor ? fileAnchor.href : null,
-                        dateTime: cells[4].innerText,
-                    });
-                }
+    // Loop through each row to extract reminder data
+            for (var i = 0; i < rows.length; i++) {
+            var cells = rows[i].cells;
+            var fileAnchor = cells[3].getElementsByTagName("a")[0];
+                reminders.push({
+                title: cells[0].innerText,
+                description: cells[1].innerText,
+                link: cells[2].innerText,
+                fileName: fileAnchor ? fileAnchor.download : null,
+                fileData: fileAnchor ? fileAnchor.href : null,
+                dateTime: cells[4].innerText.replace(" ", "T")  // Ensure proper date format
+            });
+        }
 
-                localStorage.setItem('reminders', JSON.stringify(reminders));
-                updateCalendar();
+        localStorage.setItem('reminders', JSON.stringify(reminders));
+        updateCalendar();
+    }
+
+
+           function loadRemindersFromLocalStorage() {
+            var tableBody = document.getElementById("reminderTableBody");
+            while (tableBody.firstChild) {
+            tableBody.removeChild(tableBody.firstChild);
             }
 
-            function loadRemindersFromLocalStorage() {
-                var tableBody = document.getElementById("reminderTableBody");
-                while (tableBody.firstChild) {
-                    tableBody.removeChild(tableBody.firstChild);
-                }
+            var reminders = JSON.parse(localStorage.getItem('reminders')) || [];
 
-                var reminders = JSON.parse(localStorage.getItem('reminders')) || [];
+            // Clear the timeoutIds array before reloading
+            timeoutIds = [];
 
-                for (var i = 0; i < reminders.length; i++) {
-                    addReminder(
-                        reminders[i].title,
-                        reminders[i].description,
-                        reminders[i].link,
-                        reminders[i].fileName,
-                        reminders[i].fileData,
-                        reminders[i].dateTime
-                    );
-                }
-                updateCalendar();
+            for (var i = 0; i < reminders.length; i++) {
+            // Add each reminder to the table
+            addReminder(
+            reminders[i].title,
+            reminders[i].description,
+            reminders[i].link,
+            reminders[i].fileName,
+            reminders[i].fileData,
+            reminders[i].dateTime
+        );
+
+        // Calculate time difference between scheduled time and current time
+            var scheduledTime = new Date(reminders[i].dateTime);
+            var currentTime = new Date();
+            var timeDifference = scheduledTime - currentTime;
+
+            // Only set a timeout if the reminder time is in the future
+            if (timeDifference > 0) {
+            var timeoutId = setTimeout(function(index) {
+                // Use the index of the reminder to access it
+                showNotification(reminders[index].title, reminders[index].description, reminders[index].link);
+            }, timeDifference, i);  // Pass index as an argument to setTimeout
+
+            timeoutIds.push(timeoutId);
             }
+        }
+
+    // Update the calendar with the loaded reminders
+        updateCalendar();
+    }
+
 
             function updateCalendar() {
                 var reminders = JSON.parse(localStorage.getItem('reminders')) || [];
